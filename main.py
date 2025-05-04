@@ -42,7 +42,6 @@ class LoggingMiddleware(BaseHTTPMiddleware):
 
 app.add_middleware(LoggingMiddleware)
 app.add_middleware(SessionMiddleware, secret_key=SESSION_SECRET_KEY or "fallbacksecret")
-app.mount("/static", StaticFiles(directory="static"), name="static")
 
 def is_authenticated(request: Request) -> bool:
     return request.session.get("authenticated", False)
