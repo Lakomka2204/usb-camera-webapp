@@ -3,6 +3,10 @@ from fastapi.responses import HTMLResponse, StreamingResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import Response
+from starlette.status import HTTP_500_INTERNAL_SERVER_ERROR
+from PIL import Image, ImageDraw, ImageFont
+import io
 import cv2
 import os
 import uvicorn
@@ -49,7 +53,8 @@ def is_authenticated(request: Request) -> bool:
 def authenticate_user(username: str, password: str) -> bool:
     return username == ADMIN_USERNAME and password == ADMIN_PASSWORD
 
-def gen_frames(device: str) -> Generator[bytes, None, None]:
+def gen_frames() -> Generator[bytes, None, None]:
+    device = DEVICE_PATH
     logger.info(f"Attempting to open camera device: {device}")
     cap = cv2.VideoCapture(device)
     if not cap.isOpened():
@@ -106,16 +111,42 @@ async def stream_page(request: Request):
     return f"""
     <html><body>
     <h2>Camera Stream</h2>
-    <img src="/video_feed" width="{FRAME_WIDTH}" height="{FRAME_HEIGHT}">
+    <button id="reload-btn">Reload Stream</button>
     <br><a href="/logout">Logout</a>
+    <img src="/video_feed" width="{FRAME_WIDTH}" height="{FRAME_HEIGHT}">
+<script>
+document.getElementById('reload-btn').addEventListener('click', function () {
+    const img = document.querySelector('img');
+    if (img) {
+        const baseUrl = img.src.split('?')[0];
+        const timestamp = Date.now();
+        img.src = `${baseUrl}?t=${timestamp}`;
+    }
+});
+</script>
     </body></html>
     """
+
+def generate_error_image(message: str = "Camera error") -> bytes:
+    width, height = 640, 480
+    image = Image.new("RGB", (width, height), color="black")
+    draw = ImageDraw.Draw(image)
+    text = f"ERROR:\n{message}"
+    draw.text((10, 10), text, fill="red")  # Add a font if you want
+    buf = io.BytesIO()
+    image.save(buf, format="JPEG")
+    buf.seek(0)
+    return buf
 
 @app.get("/video_feed")
 async def video_feed(request: Request):
     if not is_authenticated(request):
         return RedirectResponse(url="/")
-    return StreamingResponse(gen_frames(DEVICE_PATH), media_type="multipart/x-mixed-replace; boundary=frame")
+    try:
+        return StreamingResponse(gen_frames(), media_type="multipart/x-mixed-replace; boundary=frame")
+    except Exception as e:
+        err_img = generate_error_image(str(e))
+        return Response(content=err_img.read(), media_type="image/jpeg", status_code=HTTP_500_INTERNAL_SERVER_ERROR)
 
 if __name__ == "__main__":
     logger.info("Starting server...")
