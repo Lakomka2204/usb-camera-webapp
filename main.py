@@ -115,17 +115,18 @@ async def stream_page(request: Request):
     <br><a href="/logout">Logout</a>
     <img src="/video_feed" width="{FRAME_WIDTH}" height="{FRAME_HEIGHT}">
 <script>
-document.getElementById('reload-btn').addEventListener('click', function () {
+document.getElementById('reload-btn').addEventListener('click', function () {{
     const img = document.querySelector('img');
-    if (img) {
+    if (img) {{
         const baseUrl = img.src.split('?')[0];
         const timestamp = Date.now();
-        img.src = `${baseUrl}?t=${timestamp}`;
-    }
-});
+        img.src = `${{baseUrl}}?t=${{timestamp}}`;
+    }}
+}});
 </script>
     </body></html>
     """
+
 
 def generate_error_image(message: str = "Camera error") -> bytes:
     width, height = 640, 480
